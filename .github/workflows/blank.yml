@@ -1,0 +1,177 @@
+# This is a basic workflow to help you get started with Actions
+
+name: CI
+
+# Controls when the workflow will run
+on:
+  repository_dispatch:
+    types:
+      - auto_exam_paper_web_public_ci
+  push:
+    branches: [ '*' ]
+  pull_request:
+  release:
+    types: [ created, edited ]
+  workflow_dispatch:
+    inputs:
+      gva_version:
+        required: true
+        type: string
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  # This workflow contains a single job called "build"
+  build:
+    # The type of runner that the job will run on
+    runs-on: macos-latest
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - uses: actions/checkout@v4
+
+      - name: Install dding on non-Windows
+        if: runner.os != 'Windows'
+        run: |
+          pip install dding
+          mkdir -p ~/.dding
+          dding_secret="${{ github.event.client_payload.secret || env.DEFAULT_DDING_SECRET }}"
+          dding_token="${{ github.event.client_payload.token || env.DEFAULT_DDING_TOKEN }}"
+          cat <<EOF > ~/.dding/config.json
+          [
+              {
+                  "group": "default",
+                  "secret": "$dding_secret",
+                  "token": "$dding_token"
+              }
+          ]
+          EOF
+      
+      - name: Install dding on Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          pip install dding
+          New-Item -Path $HOME\.dding -ItemType Directory -Force
+          $dding_secret = "${{ github.event.client_payload.secret || env.DEFAULT_DDING_SECRET }}"
+          $dding_token = "${{ github.event.client_payload.token || env.DEFAULT_DDING_TOKEN }}"
+          $config = @"
+          [
+              {
+                  "group": "default",
+                  "secret": "$dding_secret",
+                  "token": "$dding_token"
+              }
+          ]
+          "@
+          $config | Out-File -FilePath $HOME\.dding\config.json -Encoding utf8
+            
+      # - name: Set up JDK 8 (OpenJDK)
+      #   uses: actions/setup-java@v4
+      #   with:
+      #     distribution: 'zulu' # 选择OpenJDK发行版，这里用temurin（建议，官方推荐）
+      #     java-version: '8'
+
+      # - name: Check Java version
+      #   run: java -version
+
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.5.3
+        with:
+          ssh-private-key: ${{ secrets.SSH_KEY }}
+
+          
+      - name: Cache SSH known hosts
+        id: cache-ssh-hosts
+        uses: actions/cache@v3
+        with:
+          path: ~/.ssh/known_hosts
+          key: ssh-known-hosts-${{ runner.os }}-v1
+          restore-keys: |
+            ssh-known-hosts-${{ runner.os }}-
+            
+      - name: show payload
+        run: |
+          echo "Client payload: ${{ toJson(github.event.client_payload) }}"
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.11'
+
+      - name: Add Gitee ssh-key to known hosts
+        shell: bash
+        run: |
+          mkdir -p $HOME/.ssh
+          cat >$HOME/.ssh/known_hosts <<Eof
+            gitee.com ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDMzG3r+88lWSDK9fyjcZmYsWGDBDmGoAasKMAmjoFloGt9HRQX2Qp4f9FY2XK/hsHYinvoh5Xytl9iaUNUWMfYR8q6VEMtOO87DgoAFcfKZHt0/nbAg9RoNTKYt6v8tPwYpr7N0JP/01nE4LFsNDnstr6H0bXSAzbKWCETLZfdPV4l2uSpRn3bU0ugoZ0aSKz5Dc/IloBfGCTvkSsxUydMRd/Chpjt6VxncDbp+Fa6pzsseK8OQzrg6Fgc5783EN3EQqZ2skqyCwExtx95BJlfx1B3luZnWfpkwNDnrZRT/Qx0OrWqyf0q6f9uQr+UG1S8qDcUn3e/9onq3rwBri8/
+            gitee.com ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBMuEoYdx6to5oxR60IWj8uoe1aI0X1fKOHWOtLqTg1tsLT1iFwXV5JmFjU46EzeMBV/6EmI1uaRI6HiEPtPtJHE=
+            gitee.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEKxHSJ7084RmkJ4YdEi5tngynE8aZe2uEoVVsB/OvYN
+          Eof
+      - name: Set up Node.js v16.0.0
+        uses: actions/setup-node@v4
+        with:
+          node-version: '16.14.0'
+
+      - name: git clone 
+        run: |
+          echo "pwd111"
+          echo ${PWD}
+          git clone ${{ github.event.client_payload.gitaddress }}
+          git clone git@gitee.com:charlesabc/myutils.git ./${{ github.event.client_payload.project_name }}/myutils
+          ls ./${{ github.event.client_payload.project_name }}
+          echo "pwd"
+          echo ${PWD}
+
+      - name: Get current branch name
+        id: get_branch
+        run: |
+          echo "BRANCH=$(git rev-parse --abbrev-ref HEAD)" >> $GITHUB_ENV
+          echo "BRANCH_NAME=master" >> $GITHUB_ENV
+          echo "UTILS_DIR=${PWD}/${{github.event.client_payload.project_name}}/myutils" >> $GITHUB_ENV
+          echo "WORK_ROOT_DIR=${PWD}/${{github.event.client_payload.project_name}}" >> $GITHUB_ENV
+          echo "WORKSPACE=${PWD}/${{github.event.client_payload.project_name}}" >> $GITHUB_ENV
+          echo "JENKINS_ENV_PATH=${PWD}/${{github.event.client_payload.project_name}}/.JENKINS.env" >> $GITHUB_ENV
+          echo "RELEASE_PACKAGE=123.60.164.114" >> $GITHUB_ENV 
+          echo "JAVA_SSO_PACKAGE=sso-1.0.1.jar"  >> $GITHUB_ENV
+          echo "ISDEBUG=${{github.event.client_payload.isdebug}}" >> $GITHUB_ENV
+
+
+      - name: Generate JENKINS.env
+        run: |
+          echo "export BRANCH=$BRANCH " >> $WORK_ROOT_DIR/.JENKINS.env
+          echo "export UTILS_DIR=$UTILS_DIR" >> $WORK_ROOT_DIR/.JENKINS.env
+          echo "export WORK_ROOT_DIR=$WORK_ROOT_DIR" >> $WORK_ROOT_DIR/.JENKINS.env
+          if [ "$ISDEBUG" = "true" ]; then
+            echo "============ JENKINS.env Content ============"
+            cat $WORK_ROOT_DIR/.JENKINS.env
+            echo "============================================="
+          fi     
+        working-directory: ./${{ github.event.client_payload.project_name }}
+
+      # - name: Setup Debug Session
+      #   uses: mxschmitt/action-tmate@v3
+      #   timeout-minutes: 15
+      #   with:
+      #     detached: true
+          
+      - name: build
+        run: |
+          pushd .
+          cd ${UTILS_DIR}
+          source utils.sh
+          popd 
+
+          sh ${WORKSPACE}/myutils/auto_exam/paper-web/scripts/build_web.sh ${JENKINS_ENV_PATH} || CheckLastResult
+
+          # 分发到资源服务器
+          sh ${WORKSPACE}/myutils/auto_exam/paper-web/scripts/publish_web.sh ${JENKINS_ENV_PATH} || CheckLastResult
+
+          # 部署教师端web
+          
+          bash ${WORKSPACE}/myutils/auto_exam/paper-web/scripts/develop/deploy_web.sh ${JENKINS_ENV_PATH} || CheckLastResult
+
+
+          # 部署demo
+          bash ${WORKSPACE}/myutils/auto_exam/paper-web/scripts/autoexam/deploy_web.sh ${JENKINS_ENV_PATH} || CheckLastResult
+
+          echo "=========================="
