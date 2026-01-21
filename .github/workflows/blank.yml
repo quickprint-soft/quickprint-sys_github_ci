@@ -136,9 +136,9 @@ jobs:
 
       - name: Generate JENKINS.env
         run: |
-          echo "export BRANCH=$BRANCH " >> $TMP_JENKINS_ENV_PATH
-          echo "export UTILS_DIR=$UTILS_DIR" >> $TMP_JENKINS_ENV_PATH
-          echo "export WORK_ROOT_DIR=$WORK_ROOT_DIR" >> $TMP_JENKINS_ENV_PATH
+          echo "export BRANCH=$BRANCH " >> $JENKINS_ENV_PATH
+          echo "export UTILS_DIR=$UTILS_DIR" >> $JENKINS_ENV_PATH
+          echo "export WORK_ROOT_DIR=$WORK_ROOT_DIR" >> $JENKINS_ENV_PATH
           if [ "$ISDEBUG" = "true" ]; then
             echo "============ JENKINS.env Content ============"
             cat $WORK_ROOT_DIR/.JENKINS.env
