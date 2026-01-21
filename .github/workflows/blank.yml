@@ -144,7 +144,7 @@ jobs:
             cat $WORK_ROOT_DIR/.JENKINS.env
             echo "============================================="
           fi     
-        working-directory: ./${{ github.event.client_payload.project_name }}
+        # working-directory: ./${{ github.event.client_payload.project_name }}
         
       - name: git clone 
         run: |
