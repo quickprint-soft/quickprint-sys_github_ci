@@ -197,9 +197,8 @@ jobs:
           cd ${UTILS_DIR}
           source utils.sh
           popd 
-          # # 部署教师端web
           
-          # bash ${WORKSPACE}/myutils/quickprint-sys/scripts/develop/deploy_web.sh ${JENKINS_ENV_PATH} || CheckLastResult
+          bash ${WORKSPACE}/myutils/quickprint-sys/scripts/develop/deploy_web.sh ${JENKINS_ENV_PATH} || CheckLastResult
 
 
           # # 部署demo
