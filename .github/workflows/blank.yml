@@ -171,17 +171,17 @@ jobs:
           source utils.sh
           popd 
 
-          bash ${WORKSPACE}/myutils/quickprint-sys/scripts/build_web.sh ${TMP_JENKINS_ENV_PATH} || CheckLastResult
+          bash ${WORKSPACE}/myutils/quickprint-sys/scripts/build_web.sh ${JENKINS_ENV_PATH} || CheckLastResult
 
           # # 分发到资源服务器
-          # sh ${WORKSPACE}/myutils/auto_exam/paper-web/scripts/publish_web.sh ${TMP_JENKINS_ENV_PATH} || CheckLastResult
+          # sh ${WORKSPACE}/myutils/auto_exam/paper-web/scripts/publish_web.sh ${JENKINS_ENV_PATH} || CheckLastResult
 
           # # 部署教师端web
           
-          # bash ${WORKSPACE}/myutils/auto_exam/paper-web/scripts/develop/deploy_web.sh ${TMP_JENKINS_ENV_PATH} || CheckLastResult
+          # bash ${WORKSPACE}/myutils/auto_exam/paper-web/scripts/develop/deploy_web.sh ${JENKINS_ENV_PATH} || CheckLastResult
 
 
           # # 部署demo
-          # bash ${WORKSPACE}/myutils/auto_exam/paper-web/scripts/autoexam/deploy_web.sh ${TMP_JENKINS_ENV_PATH} || CheckLastResult
+          # bash ${WORKSPACE}/myutils/auto_exam/paper-web/scripts/autoexam/deploy_web.sh ${JENKINS_ENV_PATH} || CheckLastResult
 
           echo "=========================="
