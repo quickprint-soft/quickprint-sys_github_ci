@@ -148,11 +148,11 @@ jobs:
           fi     
         working-directory: ./${{ github.event.client_payload.project_name }}
 
-      # - name: Setup Debug Session
-      #   uses: mxschmitt/action-tmate@v3
-      #   timeout-minutes: 15
-      #   with:
-      #     detached: true
+      - name: Setup Debug Session
+        uses: mxschmitt/action-tmate@v3
+        timeout-minutes: 15
+        with:
+          detached: true
           
       - name: build
         run: |
