@@ -125,13 +125,13 @@ jobs:
           pushd .
           echo ${UTILS_DIR}
           cd ${UTILS_DIR}
-          ls /tmp
-          ls /tmp/myutils
-          ls /tmp/myutils/quickprint-sys/scripts/close_code.sh
+          # ls /tmp
+          # ls /tmp/myutils
+          # ls /tmp/myutils/quickprint-sys/scripts/close_code.sh
           
           source utils.sh
           popd 
-          bash /tmp/myutils/quickprint-sys/scripts/close_code.sh  || CheckLastResult
+          bash /tmp/myutils/quickprint-sys/scripts/clone_code.sh  || CheckLastResult
 
 
       - name: Get current branch name
