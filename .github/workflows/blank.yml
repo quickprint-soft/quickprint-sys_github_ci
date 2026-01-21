@@ -160,9 +160,10 @@ jobs:
 
       - name: Generate  env 
         run: |
+          export UTILS_DIR=${PWD}/${{github.event.client_payload.project_name}}/myutils
           echo "UTILS_DIR=${PWD}/${{github.event.client_payload.project_name}}/myutils" >> $GITHUB_ENV
           echo "export UTILS_DIR=$UTILS_DIR" >> $JENKINS_ENV_PATH
-          export UTILS_DIR=${PWD}/${{github.event.client_payload.project_name}}/myutils
+          
 
 
           
