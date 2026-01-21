@@ -171,24 +171,24 @@ jobs:
           cache: "npm"
           cache-dependency-path: frontend/package-lock.json
           
-      - name: build
-        run: |
-          pushd .
-          cd ${UTILS_DIR}
-          source utils.sh
-          popd 
+      # - name: build
+      #   run: |
+      #     pushd .
+      #     cd ${UTILS_DIR}
+      #     source utils.sh
+      #     popd 
 
-          bash ${WORKSPACE}/myutils/quickprint-sys/scripts/build_web.sh ${JENKINS_ENV_PATH} || CheckLastResult
+      #     bash ${WORKSPACE}/myutils/quickprint-sys/scripts/build_web.sh ${JENKINS_ENV_PATH} || CheckLastResult
 
-      - name: publish action
-        run: |
-          pushd .
-          cd ${UTILS_DIR}
-          source utils.sh
-          popd 
+      # - name: publish action
+      #   run: |
+      #     pushd .
+      #     cd ${UTILS_DIR}
+      #     source utils.sh
+      #     popd 
           
-          # # 分发到资源服务器
-          bash ${WORKSPACE}/myutils/quickprint-sys/scripts/publish_web.sh ${JENKINS_ENV_PATH} || CheckLastResult
+      #     # # 分发到资源服务器
+      #     bash ${WORKSPACE}/myutils/quickprint-sys/scripts/publish_web.sh ${JENKINS_ENV_PATH} || CheckLastResult
 
 
       - name: deploy action
