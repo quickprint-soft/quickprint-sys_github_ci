@@ -180,12 +180,26 @@ jobs:
 
           bash ${WORKSPACE}/myutils/quickprint-sys/scripts/build_web.sh ${JENKINS_ENV_PATH} || CheckLastResult
 
+      - name: publish action
+        run: |
+          pushd .
+          cd ${UTILS_DIR}
+          source utils.sh
+          popd 
+          
           # # 分发到资源服务器
           bash ${WORKSPACE}/myutils/quickprint-sys/scripts/publish_web.sh ${JENKINS_ENV_PATH} || CheckLastResult
 
+
+      - name: deploy action
+        run: |
+          pushd .
+          cd ${UTILS_DIR}
+          source utils.sh
+          popd 
           # # 部署教师端web
           
-          # bash ${WORKSPACE}/myutils/auto_exam/paper-web/scripts/develop/deploy_web.sh ${JENKINS_ENV_PATH} || CheckLastResult
+          # bash ${WORKSPACE}/myutils/quickprint-sys/scripts/develop/deploy_web.sh ${JENKINS_ENV_PATH} || CheckLastResult
 
 
           # # 部署demo
