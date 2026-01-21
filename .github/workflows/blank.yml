@@ -107,10 +107,8 @@ jobs:
             gitee.com ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBMuEoYdx6to5oxR60IWj8uoe1aI0X1fKOHWOtLqTg1tsLT1iFwXV5JmFjU46EzeMBV/6EmI1uaRI6HiEPtPtJHE=
             gitee.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEKxHSJ7084RmkJ4YdEi5tngynE8aZe2uEoVVsB/OvYN
           Eof
-      - name: Set up Node.js v20.19.0
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20.19.0'
+
+
 
       # - name: Setup Debug Session
       #   uses: mxschmitt/action-tmate@v3
@@ -165,7 +163,13 @@ jobs:
           echo "export UTILS_DIR=$UTILS_DIR" >> $JENKINS_ENV_PATH
           
 
-
+      - name: Setup Node.js
+        if: matrix.variant.build_frontend == true
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
           
       - name: build
         run: |
