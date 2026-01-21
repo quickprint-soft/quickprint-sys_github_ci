@@ -117,22 +117,6 @@ jobs:
       #   timeout-minutes: 15
       #   with:
       #     detached: true
-          
-      - name: git clone 
-        run: |
-          export UTILS_DIR=/tmp/myutils
-          git clone git@gitee.com:charlesabc/myutils.git /tmp/myutils
-          pushd .
-          echo ${UTILS_DIR}
-          cd ${UTILS_DIR}
-          # ls /tmp
-          # ls /tmp/myutils
-          # ls /tmp/myutils/quickprint-sys/scripts/close_code.sh
-          
-          source utils.sh
-          popd 
-          bash /tmp/myutils/quickprint-sys/scripts/clone_code.sh  || CheckLastResult
-
 
       - name: Get current branch name
         id: get_branch
@@ -140,12 +124,31 @@ jobs:
           echo "BRANCH=$(git rev-parse --abbrev-ref HEAD)" >> $GITHUB_ENV
           echo "BRANCH_NAME=master" >> $GITHUB_ENV
           echo "UTILS_DIR=${PWD}/${{github.event.client_payload.project_name}}/myutils" >> $GITHUB_ENV
+          echo "TMP_UTILS_DIR=/tmp/myutils" >> $GITHUB_ENV
           echo "WORK_ROOT_DIR=${PWD}/${{github.event.client_payload.project_name}}" >> $GITHUB_ENV
           echo "WORKSPACE=${PWD}/${{github.event.client_payload.project_name}}" >> $GITHUB_ENV
           echo "JENKINS_ENV_PATH=${PWD}/${{github.event.client_payload.project_name}}/.JENKINS.env" >> $GITHUB_ENV
           echo "RELEASE_PACKAGE=123.60.164.114" >> $GITHUB_ENV 
           echo "JAVA_SSO_PACKAGE=sso-1.0.1.jar"  >> $GITHUB_ENV
           echo "ISDEBUG=${{github.event.client_payload.isdebug}}" >> $GITHUB_ENV
+          
+      - name: git clone 
+        run: |
+          export UTILS_DIR=/tmp/myutils
+          git clone git@gitee.com:charlesabc/myutils.git ${TMP_UTILS_DIR}
+          pushd .
+          echo ${UTILS_DIR}
+          cd ${UTILS_DIR}
+          ls /tmp
+          ls /tmp/myutils
+          ls /tmp/myutils/quickprint-sys/scripts/close_code.sh
+          
+          source utils.sh
+          popd 
+          bash /tmp/myutils/quickprint-sys/scripts/clone_code.sh  || CheckLastResult
+
+
+
 
 
       - name: Generate JENKINS.env
