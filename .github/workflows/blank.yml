@@ -20,14 +20,15 @@ on:
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
-  # This workflow contains a single job called "build"
-  build:
-    # The type of runner that the job will run on
+  # Setup job for common initialization
+  setup:
     runs-on: macos-latest
-
-    # Steps represent a sequence of tasks that will be executed as part of the job
+    outputs:
+      branch: ${{ steps.get_branch.outputs.branch }}
+      utils_dir: ${{ steps.get_branch.outputs.utils_dir }}
+      workspace: ${{ steps.get_branch.outputs.workspace }}
+      jenkins_env_path: ${{ steps.get_branch.outputs.jenkins_env_path }}
     steps:
-      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v4
 
       - name: Install dding on non-Windows
@@ -65,34 +66,12 @@ jobs:
           ]
           "@
           $config | Out-File -FilePath $HOME\.dding\config.json -Encoding utf8
-            
-      # - name: Set up JDK 8 (OpenJDK)
-      #   uses: actions/setup-java@v4
-      #   with:
-      #     distribution: 'zulu' # 选择OpenJDK发行版，这里用temurin（建议，官方推荐）
-      #     java-version: '8'
-
-      # - name: Check Java version
-      #   run: java -version
 
       - name: Setup SSH
         uses: webfactory/ssh-agent@v0.5.3
         with:
           ssh-private-key: ${{ secrets.SSH_KEY }}
 
-          
-      - name: Cache SSH known hosts
-        id: cache-ssh-hosts
-        uses: actions/cache@v3
-        with:
-          path: ~/.ssh/known_hosts
-          key: ssh-known-hosts-${{ runner.os }}-v1
-          restore-keys: |
-            ssh-known-hosts-${{ runner.os }}-
-            
-      - name: show payload
-        run: |
-          echo "Client payload: ${{ toJson(github.event.client_payload) }}"
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
@@ -119,29 +98,24 @@ jobs:
           ssh-keyscan github.com >> ~/.ssh/known_hosts
           ssh-keyscan gitee.com >> ~/.ssh/known_hosts
 
-
-
-      # - name: Setup Debug Session
-      #   uses: mxschmitt/action-tmate@v3
-      #   timeout-minutes: 15
-      #   with:
-      #     detached: true
-
       - name: Get current branch name
         id: get_branch
         run: |
           echo "BRANCH=$(git rev-parse --abbrev-ref HEAD)" >> $GITHUB_ENV
           echo "BRANCH_NAME=master" >> $GITHUB_ENV
-          # echo "UTILS_DIR=${PWD}/${{github.event.client_payload.project_name}}/myutils" >> $GITHUB_ENV
           echo "UTILS_DIR=/tmp/myutils" >> $GITHUB_ENV
           echo "WORK_ROOT_DIR=${PWD}/${{github.event.client_payload.project_name}}" >> $GITHUB_ENV
           echo "WORKSPACE=${PWD}/${{github.event.client_payload.project_name}}" >> $GITHUB_ENV
           echo "JENKINS_ENV_PATH=/tmp/.JENKINS.env" >> $GITHUB_ENV
-          # echo "JENKINS_ENV_PATH=${PWD}/${{github.event.client_payload.project_name}}/.JENKINS.env" >> $GITHUB_ENV
           echo "RELEASE_PACKAGE=123.60.164.114" >> $GITHUB_ENV 
           echo "JAVA_SSO_PACKAGE=sso-1.0.1.jar"  >> $GITHUB_ENV
           echo "ISDEBUG=${{github.event.client_payload.isdebug}}" >> $GITHUB_ENV
           
+          # Set outputs for other jobs
+          echo "branch=$(git rev-parse --abbrev-ref HEAD)" >> $GITHUB_OUTPUT
+          echo "utils_dir=/tmp/myutils" >> $GITHUB_OUTPUT
+          echo "workspace=${PWD}/${{github.event.client_payload.project_name}}" >> $GITHUB_OUTPUT
+          echo "jenkins_env_path=/tmp/.JENKINS.env" >> $GITHUB_OUTPUT
 
       - name: Generate JENKINS.env
         run: |
@@ -153,7 +127,6 @@ jobs:
             cat $WORK_ROOT_DIR/.JENKINS.env
             echo "============================================="
           fi     
-        # working-directory: ./${{ github.event.client_payload.project_name }}
         
       - name: git clone 
         run: |
@@ -166,13 +139,36 @@ jobs:
           popd 
           bash /tmp/myutils/quickprint-sys/scripts/clone_code.sh ${JENKINS_ENV_PATH} || CheckLastResult
 
-
-      - name: Generate  env 
+      - name: Generate env 
         run: |
           export UTILS_DIR=${PWD}/${{github.event.client_payload.project_name}}/myutils
           echo "UTILS_DIR=${PWD}/${{github.event.client_payload.project_name}}/myutils" >> $GITHUB_ENV
           echo "export UTILS_DIR=$UTILS_DIR" >> $JENKINS_ENV_PATH
-          
+
+      - name: Upload workspace
+        uses: actions/upload-artifact@v4
+        with:
+          name: workspace-${{ github.run_id }}
+          path: |
+            ${{ github.event.client_payload.project_name }}/
+            /tmp/.JENKINS.env
+          retention-days: 1
+
+  build:
+    needs: setup
+    runs-on: macos-latest
+    env:
+      UTILS_DIR: ${{ needs.setup.outputs.utils_dir }}
+      WORKSPACE: ${{ needs.setup.outputs.workspace }}
+      JENKINS_ENV_PATH: ${{ needs.setup.outputs.jenkins_env_path }}
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Download workspace
+        uses: actions/download-artifact@v4
+        with:
+          name: workspace-${{ github.run_id }}
+          path: .
 
       - name: Setup Node.js
         if: matrix.variant.build_frontend == true
@@ -191,6 +187,22 @@ jobs:
 
           bash ${WORKSPACE}/myutils/quickprint-sys/scripts/build_web.sh ${JENKINS_ENV_PATH} || CheckLastResult
 
+  publish:
+    needs: [setup, build]
+    runs-on: macos-latest
+    env:
+      UTILS_DIR: ${{ needs.setup.outputs.utils_dir }}
+      WORKSPACE: ${{ needs.setup.outputs.workspace }}
+      JENKINS_ENV_PATH: ${{ needs.setup.outputs.jenkins_env_path }}
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Download workspace
+        uses: actions/download-artifact@v4
+        with:
+          name: workspace-${{ github.run_id }}
+          path: .
+
       - name: publish action
         run: |
           pushd .
@@ -201,6 +213,21 @@ jobs:
           # # 分发到资源服务器
           bash ${WORKSPACE}/myutils/quickprint-sys/scripts/publish_web.sh ${JENKINS_ENV_PATH} || CheckLastResult
 
+  deploy:
+    needs: [setup, publish]
+    runs-on: macos-latest
+    env:
+      UTILS_DIR: ${{ needs.setup.outputs.utils_dir }}
+      WORKSPACE: ${{ needs.setup.outputs.workspace }}
+      JENKINS_ENV_PATH: ${{ needs.setup.outputs.jenkins_env_path }}
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Download workspace
+        uses: actions/download-artifact@v4
+        with:
+          name: workspace-${{ github.run_id }}
+          path: .
 
       - name: deploy action
         run: |
@@ -210,4 +237,231 @@ jobs:
           popd 
           
           bash ${WORKSPACE}/myutils/quickprint-sys/scripts/develop/deploy_web.sh ${JENKINS_ENV_PATH} || CheckLastResult
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# # This is a basic workflow to help you get started with Actions
+
+# name: CI
+
+# # Controls when the workflow will run
+# on:
+#   repository_dispatch:
+#     types:
+#       - quickprint-sys_github_ci
+#   push:
+#     branches: [ '*' ]
+#   pull_request:
+#   release:
+#     types: [ created, edited ]
+#   workflow_dispatch:
+#     inputs:
+#       gva_version:
+#         required: true
+#         type: string
+
+# # A workflow run is made up of one or more jobs that can run sequentially or in parallel
+# jobs:
+#   # This workflow contains a single job called "build"
+#   build:
+#     # The type of runner that the job will run on
+#     runs-on: macos-latest
+
+#     # Steps represent a sequence of tasks that will be executed as part of the job
+#     steps:
+#       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+#       - uses: actions/checkout@v4
+
+#       - name: Install dding on non-Windows
+#         if: runner.os != 'Windows'
+#         run: |
+#           pip install dding
+#           mkdir -p ~/.dding
+#           dding_secret="${{ github.event.client_payload.secret || env.DEFAULT_DDING_SECRET }}"
+#           dding_token="${{ github.event.client_payload.token || env.DEFAULT_DDING_TOKEN }}"
+#           cat <<EOF > ~/.dding/config.json
+#           [
+#               {
+#                   "group": "default",
+#                   "secret": "$dding_secret",
+#                   "token": "$dding_token"
+#               }
+#           ]
+#           EOF
+      
+#       - name: Install dding on Windows
+#         if: runner.os == 'Windows'
+#         shell: pwsh
+#         run: |
+#           pip install dding
+#           New-Item -Path $HOME\.dding -ItemType Directory -Force
+#           $dding_secret = "${{ github.event.client_payload.secret || env.DEFAULT_DDING_SECRET }}"
+#           $dding_token = "${{ github.event.client_payload.token || env.DEFAULT_DDING_TOKEN }}"
+#           $config = @"
+#           [
+#               {
+#                   "group": "default",
+#                   "secret": "$dding_secret",
+#                   "token": "$dding_token"
+#               }
+#           ]
+#           "@
+#           $config | Out-File -FilePath $HOME\.dding\config.json -Encoding utf8
+            
+#       # - name: Set up JDK 8 (OpenJDK)
+#       #   uses: actions/setup-java@v4
+#       #   with:
+#       #     distribution: 'zulu' # 选择OpenJDK发行版，这里用temurin（建议，官方推荐）
+#       #     java-version: '8'
+
+#       # - name: Check Java version
+#       #   run: java -version
+
+#       - name: Setup SSH
+#         uses: webfactory/ssh-agent@v0.5.3
+#         with:
+#           ssh-private-key: ${{ secrets.SSH_KEY }}
+
+          
+#       - name: Cache SSH known hosts
+#         id: cache-ssh-hosts
+#         uses: actions/cache@v3
+#         with:
+#           path: ~/.ssh/known_hosts
+#           key: ssh-known-hosts-${{ runner.os }}-v1
+#           restore-keys: |
+#             ssh-known-hosts-${{ runner.os }}-
+            
+#       - name: show payload
+#         run: |
+#           echo "Client payload: ${{ toJson(github.event.client_payload) }}"
+#       - name: Set up Python
+#         uses: actions/setup-python@v2
+#         with:
+#           python-version: '3.11'
+
+#       - name: Add Gitee ssh-key to known hosts
+#         shell: bash
+#         run: |
+#           mkdir -p $HOME/.ssh
+#           cat >$HOME/.ssh/known_hosts <<Eof
+#             gitee.com ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDMzG3r+88lWSDK9fyjcZmYsWGDBDmGoAasKMAmjoFloGt9HRQX2Qp4f9FY2XK/hsHYinvoh5Xytl9iaUNUWMfYR8q6VEMtOO87DgoAFcfKZHt0/nbAg9RoNTKYt6v8tPwYpr7N0JP/01nE4LFsNDnstr6H0bXSAzbKWCETLZfdPV4l2uSpRn3bU0ugoZ0aSKz5Dc/IloBfGCTvkSsxUydMRd/Chpjt6VxncDbp+Fa6pzsseK8OQzrg6Fgc5783EN3EQqZ2skqyCwExtx95BJlfx1B3luZnWfpkwNDnrZRT/Qx0OrWqyf0q6f9uQr+UG1S8qDcUn3e/9onq3rwBri8/
+#             gitee.com ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBMuEoYdx6to5oxR60IWj8uoe1aI0X1fKOHWOtLqTg1tsLT1iFwXV5JmFjU46EzeMBV/6EmI1uaRI6HiEPtPtJHE=
+#             gitee.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEKxHSJ7084RmkJ4YdEi5tngynE8aZe2uEoVVsB/OvYN
+#           Eof
+
+#       - name: Setup SSH Key
+#         env:
+#           SSH_KEY: ${{ secrets.SSH_KEY }}
+#         run: |
+#           mkdir -p ~/.ssh/
+#           echo "$SSH_KEY" > ~/.ssh/id_rsa
+#           chmod 600 ~/.ssh/id_rsa
+#           cat ~/.ssh/id_rsa
+#           ssh-keyscan github.com >> ~/.ssh/known_hosts
+#           ssh-keyscan gitee.com >> ~/.ssh/known_hosts
+
+
+
+#       # - name: Setup Debug Session
+#       #   uses: mxschmitt/action-tmate@v3
+#       #   timeout-minutes: 15
+#       #   with:
+#       #     detached: true
+
+#       - name: Get current branch name
+#         id: get_branch
+#         run: |
+#           echo "BRANCH=$(git rev-parse --abbrev-ref HEAD)" >> $GITHUB_ENV
+#           echo "BRANCH_NAME=master" >> $GITHUB_ENV
+#           # echo "UTILS_DIR=${PWD}/${{github.event.client_payload.project_name}}/myutils" >> $GITHUB_ENV
+#           echo "UTILS_DIR=/tmp/myutils" >> $GITHUB_ENV
+#           echo "WORK_ROOT_DIR=${PWD}/${{github.event.client_payload.project_name}}" >> $GITHUB_ENV
+#           echo "WORKSPACE=${PWD}/${{github.event.client_payload.project_name}}" >> $GITHUB_ENV
+#           echo "JENKINS_ENV_PATH=/tmp/.JENKINS.env" >> $GITHUB_ENV
+#           # echo "JENKINS_ENV_PATH=${PWD}/${{github.event.client_payload.project_name}}/.JENKINS.env" >> $GITHUB_ENV
+#           echo "RELEASE_PACKAGE=123.60.164.114" >> $GITHUB_ENV 
+#           echo "JAVA_SSO_PACKAGE=sso-1.0.1.jar"  >> $GITHUB_ENV
+#           echo "ISDEBUG=${{github.event.client_payload.isdebug}}" >> $GITHUB_ENV
+          
+
+#       - name: Generate JENKINS.env
+#         run: |
+#           echo "export BRANCH=$BRANCH " >> $JENKINS_ENV_PATH
+#           echo "export UTILS_DIR=$UTILS_DIR" >> $JENKINS_ENV_PATH
+#           echo "export WORK_ROOT_DIR=$WORK_ROOT_DIR" >> $JENKINS_ENV_PATH
+#           if [ "$ISDEBUG" = "true" ]; then
+#             echo "============ JENKINS.env Content ============"
+#             cat $WORK_ROOT_DIR/.JENKINS.env
+#             echo "============================================="
+#           fi     
+#         # working-directory: ./${{ github.event.client_payload.project_name }}
+        
+#       - name: git clone 
+#         run: |
+#           export UTILS_DIR=/tmp/myutils
+#           git clone git@gitee.com:charlesabc/myutils.git ${UTILS_DIR}
+#           pushd .
+#           echo ${UTILS_DIR}
+#           cd ${UTILS_DIR}
+#           source utils.sh
+#           popd 
+#           bash /tmp/myutils/quickprint-sys/scripts/clone_code.sh ${JENKINS_ENV_PATH} || CheckLastResult
+
+
+#       - name: Generate  env 
+#         run: |
+#           export UTILS_DIR=${PWD}/${{github.event.client_payload.project_name}}/myutils
+#           echo "UTILS_DIR=${PWD}/${{github.event.client_payload.project_name}}/myutils" >> $GITHUB_ENV
+#           echo "export UTILS_DIR=$UTILS_DIR" >> $JENKINS_ENV_PATH
+          
+
+#       - name: Setup Node.js
+#         if: matrix.variant.build_frontend == true
+#         uses: actions/setup-node@v4
+#         with:
+#           node-version: 22
+#           cache: "npm"
+#           cache-dependency-path: frontend/package-lock.json
+          
+#       - name: build
+#         run: |
+#           pushd .
+#           cd ${UTILS_DIR}
+#           source utils.sh
+#           popd 
+
+#           bash ${WORKSPACE}/myutils/quickprint-sys/scripts/build_web.sh ${JENKINS_ENV_PATH} || CheckLastResult
+
+#       - name: publish action
+#         run: |
+#           pushd .
+#           cd ${UTILS_DIR}
+#           source utils.sh
+#           popd 
+          
+#           # # 分发到资源服务器
+#           bash ${WORKSPACE}/myutils/quickprint-sys/scripts/publish_web.sh ${JENKINS_ENV_PATH} || CheckLastResult
+
+
+#       - name: deploy action
+#         run: |
+#           pushd .
+#           cd ${UTILS_DIR}
+#           source utils.sh
+#           popd 
+          
+#           bash ${WORKSPACE}/myutils/quickprint-sys/scripts/develop/deploy_web.sh ${JENKINS_ENV_PATH} || CheckLastResult
 
