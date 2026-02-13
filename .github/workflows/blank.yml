@@ -124,7 +124,15 @@ jobs:
             echo "============ JENKINS.env Content ============"
             cat $WORK_ROOT_DIR/.JENKINS.env
             echo "============================================="
-          fi     
+          fi    
+
+
+      - name: Setup Debug Session
+        uses: mxschmitt/action-tmate@v3
+        timeout-minutes: 15
+        with:
+          detached: true
+
         
       - name: git clone 
         run: |
