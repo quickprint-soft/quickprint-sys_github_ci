@@ -251,6 +251,15 @@ jobs:
           # 清理临时文件
           rm workspace.zip
 
+      - name: Setup SSH Key
+        env:
+          SSH_KEY: ${{ secrets.SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh/
+          echo "$SSH_KEY" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          cat ~/.ssh/id_rsa
+          ssh-keyscan github.com >> ~/.ssh/known_hosts
       - name: deploy action
         run: |
           pushd .
