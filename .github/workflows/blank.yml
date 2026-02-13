@@ -208,6 +208,8 @@ jobs:
           bash ${WORKSPACE}/myutils/quickprint-sys/scripts/build_web.sh ${JENKINS_ENV_PATH} || CheckLastResult
 
       - name: publish action
+        env:
+          GH_TOKEN: ${{ secrets.EXTGITHUB_TOKEN }}
         run: |
           pushd .
           cd ${UTILS_DIR}
