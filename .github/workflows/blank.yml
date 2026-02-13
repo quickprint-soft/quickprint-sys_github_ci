@@ -207,30 +207,6 @@ jobs:
 
           bash ${WORKSPACE}/myutils/quickprint-sys/scripts/build_web.sh ${JENKINS_ENV_PATH} || CheckLastResult
 
-  publish:
-    needs: [setup, build]
-    runs-on: macos-latest
-    env:
-      UTILS_DIR: ${{ needs.setup.outputs.utils_dir }}
-      WORKSPACE: ${{ needs.setup.outputs.workspace }}
-      JENKINS_ENV_PATH: ${{ needs.setup.outputs.jenkins_env_path }}
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Download and decrypt workspace
-        uses: actions/download-artifact@v4
-        with:
-          name: encrypted-workspace-${{ github.run_id }}
-          path: .
-      
-      - name: Decrypt workspace
-        run: |
-          # 使用密码解压
-          unzip -P "${{ secrets.WORKSPACE_PASSWORD }}" workspace.zip
-          
-          # 清理临时文件
-          rm workspace.zip
-
       - name: publish action
         run: |
           pushd .
@@ -242,7 +218,7 @@ jobs:
           bash ${WORKSPACE}/myutils/quickprint-sys/scripts/publish_web.sh ${JENKINS_ENV_PATH} || CheckLastResult
 
   deploy:
-    needs: [setup, publish]
+    needs: [setup, build]
     runs-on: macos-latest
     env:
       UTILS_DIR: ${{ needs.setup.outputs.utils_dir }}
@@ -273,7 +249,6 @@ jobs:
           popd 
           
           bash ${WORKSPACE}/myutils/quickprint-sys/scripts/develop/deploy_web.sh ${JENKINS_ENV_PATH} || CheckLastResult
-
 
 
 
