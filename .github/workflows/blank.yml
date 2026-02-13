@@ -145,14 +145,27 @@ jobs:
           echo "UTILS_DIR=${PWD}/${{github.event.client_payload.project_name}}/myutils" >> $GITHUB_ENV
           echo "export UTILS_DIR=$UTILS_DIR" >> $JENKINS_ENV_PATH
 
-      - name: Upload workspace
-        uses: actions/upload-artifact@v4
-        with:
-          name: workspace-${{ github.run_id }}
-          path: |
-            ${{ github.event.client_payload.project_name }}/
-            /tmp/.JENKINS.env
-          retention-days: 1
+      - name: Encrypt and upload to secure storage
+        run: |
+          # 加密敏感文件
+          tar -czf workspace.tar.gz ${{ github.event.client_payload.project_name }}/ /tmp/.JENKINS.env
+          openssl enc -aes-256-cbc -salt -in workspace.tar.gz -out workspace.tar.gz.enc -pass pass:${{ secrets.WORKSPACE_PASSWORD }}
+          
+          # 上传到安全存储 (示例: 使用 scp 到私有服务器)
+          scp workspace.tar.gz.enc user@yourserver:/secure/path/
+          
+          # 清理本地文件
+          rm workspace.tar.gz workspace.tar.gz.enc
+
+      # 注释掉原来的 upload-artifact
+      # - name: Upload workspace
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: workspace-${{ github.run_id }}
+      #     path: |
+      #       ${{ github.event.client_payload.project_name }}/
+      #       /tmp/.JENKINS.env
+      #     retention-days: 1
 
   build:
     needs: setup
@@ -164,11 +177,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      - name: Download workspace
-        uses: actions/download-artifact@v4
-        with:
-          name: workspace-${{ github.run_id }}
-          path: .
+      - name: Download and decrypt workspace
+        run: |
+          # 从安全服务器下载加密文件
+          scp user@yourserver:/secure/path/workspace.tar.gz.enc .
+          
+          # 解密并解压
+          openssl enc -aes-256-cbc -d -in workspace.tar.gz.enc -out workspace.tar.gz -pass pass:${{ secrets.WORKSPACE_PASSWORD }}
+          tar -xzf workspace.tar.gz
+          
+          # 清理临时文件
+          rm workspace.tar.gz.enc workspace.tar.gz
 
       - name: Setup Node.js
         if: matrix.variant.build_frontend == true
@@ -197,11 +216,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      - name: Download workspace
-        uses: actions/download-artifact@v4
-        with:
-          name: workspace-${{ github.run_id }}
-          path: .
+      - name: Download and decrypt workspace
+        run: |
+          # 从安全服务器下载加密文件
+          scp user@yourserver:/secure/path/workspace.tar.gz.enc .
+          
+          # 解密并解压
+          openssl enc -aes-256-cbc -d -in workspace.tar.gz.enc -out workspace.tar.gz -pass pass:${{ secrets.WORKSPACE_PASSWORD }}
+          tar -xzf workspace.tar.gz
+          
+          # 清理临时文件
+          rm workspace.tar.gz.enc workspace.tar.gz
 
       - name: publish action
         run: |
@@ -223,11 +248,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      - name: Download workspace
-        uses: actions/download-artifact@v4
-        with:
-          name: workspace-${{ github.run_id }}
-          path: .
+      - name: Download and decrypt workspace
+        run: |
+          # 从安全服务器下载加密文件
+          scp user@yourserver:/secure/path/workspace.tar.gz.enc .
+          
+          # 解密并解压
+          openssl enc -aes-256-cbc -d -in workspace.tar.gz.enc -out workspace.tar.gz -pass pass:${{ secrets.WORKSPACE_PASSWORD }}
+          tar -xzf workspace.tar.gz
+          
+          # 清理临时文件
+          rm workspace.tar.gz.enc workspace.tar.gz
 
       - name: deploy action
         run: |
@@ -237,11 +268,6 @@ jobs:
           popd 
           
           bash ${WORKSPACE}/myutils/quickprint-sys/scripts/develop/deploy_web.sh ${JENKINS_ENV_PATH} || CheckLastResult
-
-
-
-
-
 
 
 
