@@ -27,7 +27,7 @@ jobs:
       branch: ${{ steps.get_branch.outputs.branch }}
       utils_dir: ${{ steps.set_utils_dir.outputs.utils_dir }}
       workspace: ${{ steps.get_branch.outputs.workspace }}
-      jenkins_env_path: ${{ steps.get_branch.outputs.jenkins_env_path }}
+      jenkins_env_path: ${{ steps.set_utils_dir.outputs.jenkins_env_path }}
     steps:
       - uses: actions/checkout@v4
 
@@ -111,10 +111,9 @@ jobs:
           echo "JAVA_SSO_PACKAGE=sso-1.0.1.jar"  >> $GITHUB_ENV
           echo "ISDEBUG=${{github.event.client_payload.isdebug}}" >> $GITHUB_ENV
           
-          # Set outputs for other jobs (except utils_dir, will set after git clone)
+          # Set outputs for other jobs (except utils_dir and jenkins_env_path, will set after git clone)
           echo "branch=$(git rev-parse --abbrev-ref HEAD)" >> $GITHUB_OUTPUT
           echo "workspace=${PWD}/${{github.event.client_payload.project_name}}" >> $GITHUB_OUTPUT
-          echo "jenkins_env_path=/tmp/.JENKINS.env" >> $GITHUB_OUTPUT
 
       - name: Generate JENKINS.env
         run: |
@@ -145,13 +144,20 @@ jobs:
           echo "UTILS_DIR=${PWD}/${{github.event.client_payload.project_name}}/myutils" >> $GITHUB_ENV
           echo "export UTILS_DIR=$UTILS_DIR" >> $JENKINS_ENV_PATH
           
+          # 拷贝JENKINS.env到项目目录并更新路径
+          PROJECT_JENKINS_ENV="${PWD}/${{github.event.client_payload.project_name}}/.JENKINS.env"
+          cp /tmp/.JENKINS.env "$PROJECT_JENKINS_ENV"
+          echo "JENKINS_ENV_PATH=$PROJECT_JENKINS_ENV" >> $GITHUB_ENV
+          echo "export JENKINS_ENV_PATH=$PROJECT_JENKINS_ENV" >> "$PROJECT_JENKINS_ENV"
+          
           # Set utils_dir output after git clone (when myutils actually exists)
           echo "utils_dir=${PWD}/${{github.event.client_payload.project_name}}/myutils" >> $GITHUB_OUTPUT
+          echo "jenkins_env_path=$PROJECT_JENKINS_ENV" >> $GITHUB_OUTPUT
 
       - name: Encrypt and upload to artifact
         run: |
-          # 使用zip密码加密
-          zip -r -P "${{ secrets.WORKSPACE_PASSWORD }}" workspace.zip ${{ github.event.client_payload.project_name }}/ /tmp/.JENKINS.env
+          # 使用zip密码加密（使用项目目录下的JENKINS.env）
+          zip -r -P "${{ secrets.WORKSPACE_PASSWORD }}" workspace.zip ${{ github.event.client_payload.project_name }}/
 
       - name: Upload encrypted workspace
         uses: actions/upload-artifact@v4
