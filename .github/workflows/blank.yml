@@ -127,11 +127,11 @@ jobs:
           fi    
 
 
-      - name: Setup Debug Session
-        uses: mxschmitt/action-tmate@v3
-        timeout-minutes: 15
-        with:
-          detached: true
+      # - name: Setup Debug Session
+      #   uses: mxschmitt/action-tmate@v3
+      #   timeout-minutes: 15
+      #   with:
+      #     detached: true
 
         
       - name: git clone 
