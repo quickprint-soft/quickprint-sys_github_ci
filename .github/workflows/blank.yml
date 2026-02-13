@@ -145,26 +145,17 @@ jobs:
           echo "UTILS_DIR=${PWD}/${{github.event.client_payload.project_name}}/myutils" >> $GITHUB_ENV
           echo "export UTILS_DIR=$UTILS_DIR" >> $JENKINS_ENV_PATH
 
-      - name: Encrypt and upload to secure storage
+      - name: Encrypt and upload to artifact
         run: |
           # 使用zip密码加密
           zip -r -P "${{ secrets.WORKSPACE_PASSWORD }}" workspace.zip ${{ github.event.client_payload.project_name }}/ /tmp/.JENKINS.env
-          
-          # 上传到安全存储 (示例: 使用 scp 到私有服务器)
-          scp workspace.zip user@yourserver:/secure/path/
-          
-          # 清理本地文件
-          rm workspace.zip
 
-      # 注释掉原来的 upload-artifact
-      # - name: Upload workspace
-      #   uses: actions/upload-artifact@v4
-      #   with:
-      #     name: workspace-${{ github.run_id }}
-      #     path: |
-      #       ${{ github.event.client_payload.project_name }}/
-      #       /tmp/.JENKINS.env
-      #     retention-days: 1
+      - name: Upload encrypted workspace
+        uses: actions/upload-artifact@v4
+        with:
+          name: encrypted-workspace-${{ github.run_id }}
+          path: workspace.zip
+          retention-days: 1
 
   build:
     needs: setup
@@ -177,10 +168,13 @@ jobs:
       - uses: actions/checkout@v4
       
       - name: Download and decrypt workspace
+        uses: actions/download-artifact@v4
+        with:
+          name: encrypted-workspace-${{ github.run_id }}
+          path: .
+      
+      - name: Decrypt workspace
         run: |
-          # 从安全服务器下载加密zip文件
-          scp user@yourserver:/secure/path/workspace.zip .
-          
           # 使用密码解压
           unzip -P "${{ secrets.WORKSPACE_PASSWORD }}" workspace.zip
           
@@ -215,10 +209,13 @@ jobs:
       - uses: actions/checkout@v4
       
       - name: Download and decrypt workspace
+        uses: actions/download-artifact@v4
+        with:
+          name: encrypted-workspace-${{ github.run_id }}
+          path: .
+      
+      - name: Decrypt workspace
         run: |
-          # 从安全服务器下载加密zip文件
-          scp user@yourserver:/secure/path/workspace.zip .
-          
           # 使用密码解压
           unzip -P "${{ secrets.WORKSPACE_PASSWORD }}" workspace.zip
           
@@ -246,10 +243,13 @@ jobs:
       - uses: actions/checkout@v4
       
       - name: Download and decrypt workspace
+        uses: actions/download-artifact@v4
+        with:
+          name: encrypted-workspace-${{ github.run_id }}
+          path: .
+      
+      - name: Decrypt workspace
         run: |
-          # 从安全服务器下载加密zip文件
-          scp user@yourserver:/secure/path/workspace.zip .
-          
           # 使用密码解压
           unzip -P "${{ secrets.WORKSPACE_PASSWORD }}" workspace.zip
           
