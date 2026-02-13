@@ -25,7 +25,7 @@ jobs:
     runs-on: macos-latest
     outputs:
       branch: ${{ steps.get_branch.outputs.branch }}
-      utils_dir: ${{ steps.get_branch.outputs.utils_dir }}
+      utils_dir: ${{ steps.set_utils_dir.outputs.utils_dir }}
       workspace: ${{ steps.get_branch.outputs.workspace }}
       jenkins_env_path: ${{ steps.get_branch.outputs.jenkins_env_path }}
     steps:
@@ -111,9 +111,8 @@ jobs:
           echo "JAVA_SSO_PACKAGE=sso-1.0.1.jar"  >> $GITHUB_ENV
           echo "ISDEBUG=${{github.event.client_payload.isdebug}}" >> $GITHUB_ENV
           
-          # Set outputs for other jobs
+          # Set outputs for other jobs (except utils_dir, will set after git clone)
           echo "branch=$(git rev-parse --abbrev-ref HEAD)" >> $GITHUB_OUTPUT
-          echo "utils_dir=/tmp/myutils" >> $GITHUB_OUTPUT
           echo "workspace=${PWD}/${{github.event.client_payload.project_name}}" >> $GITHUB_OUTPUT
           echo "jenkins_env_path=/tmp/.JENKINS.env" >> $GITHUB_OUTPUT
 
@@ -140,10 +139,14 @@ jobs:
           bash /tmp/myutils/quickprint-sys/scripts/clone_code.sh ${JENKINS_ENV_PATH} || CheckLastResult
 
       - name: Generate env 
+        id: set_utils_dir
         run: |
           export UTILS_DIR=${PWD}/${{github.event.client_payload.project_name}}/myutils
           echo "UTILS_DIR=${PWD}/${{github.event.client_payload.project_name}}/myutils" >> $GITHUB_ENV
           echo "export UTILS_DIR=$UTILS_DIR" >> $JENKINS_ENV_PATH
+          
+          # Set utils_dir output after git clone (when myutils actually exists)
+          echo "utils_dir=${PWD}/${{github.event.client_payload.project_name}}/myutils" >> $GITHUB_OUTPUT
 
       - name: Encrypt and upload to artifact
         run: |
@@ -264,8 +267,6 @@ jobs:
           popd 
           
           bash ${WORKSPACE}/myutils/quickprint-sys/scripts/develop/deploy_web.sh ${JENKINS_ENV_PATH} || CheckLastResult
-
-
 
 
 
